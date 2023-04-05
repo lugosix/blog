@@ -141,7 +141,7 @@ type mapextra struct {
 ```
 |  hmap|bmap|访问 map  |
 | ------ |----| ------ |
-| ![](/golang_map/1.png) |![](/golang_map/2.png)  | ![](/golang_map/3.png)|
+| ![](/blog/golang_map/1.png) |![](/blog/golang_map/2.png)  | ![](/blog/golang_map/3.png)|
 ## 2.2 写
 因没有泛型且需要有良好的性能，针对不同类型有多种实现
 ```go
@@ -283,11 +283,11 @@ done:
 等量扩容：当 B 小于 15，也就是 bucket 总数 2^B 小于 2^15 时，如果 overflow 的 bucket 数量超过 2^B；当 B >= 15，也就是 bucket 总数 2^B 大于等于 2^15，如果 overflow 的 bucket 数量超过 2^15。
 ||等量扩容|增量扩容|
 |---|---|---|
-|扩容前|![](/golang_map/4.png)||
-|扩容后|![](/golang_map/5.png)|![](/golang_map/6.png)|
+|扩容前|![](/blog/golang_map/4.png)||
+|扩容后|![](/blog/golang_map/5.png)|![](/blog/golang_map/6.png)|
 ### 2.3.2 搬迁
-![](/golang_map/7.png)  
-![](/golang_map/8.png)
+![](/blog/golang_map/7.png)  
+![](/blog/golang_map/8.png)
 # 3 感悟&思考
 1. 怎么变成线程安全
 2. 与分布式 kv 的关系

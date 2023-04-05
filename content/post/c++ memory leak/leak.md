@@ -4,7 +4,7 @@ date: 2022-03-15T16:00:39+08:00
 ---
 # 1 背景
 同事某日收到某服务（c++编写）内存报警，具体内存使用情况如下图
-![](/cpp_memory_leak/1.png)
+![](/blog/cpp_memory_leak/1.png)
 可以看到有非常明显的内存持续性上涨，初步怀疑为内存泄漏。以下在 sim 环境对问题进行复现和排查
 
 # 2 排查
@@ -38,14 +38,14 @@ pprof  --pdf --base=生成的分析文件.0777.hprof ./目标二进制文件 生
 - --pdf：生成 pdf 格式文件。这有个冷知识，pdf 是一种跨平台的文件格式
 - --base：已 base 后紧跟着的分析文件为基准比较两个分析文件的内存分配差值
 生成的 pdf 内最重要部分如下
-![](/cpp_memory_leak/2.png)  
+![](/blog/cpp_memory_leak/2.png)  
 
 这个框的大小直观的代表了分配内存的多少，越大越多，数字代表具体分配数值，整体各部分的含义和 cpu 的分析图是一致的，只不过这里换成了内存。
 
 可以很容易的看出 \_S_create 这个函数内分配了最多的内存。一般来说如果泄漏的时间够久，那分配最大的地方大概率就是内存泄漏的地方，但考虑到 sim 环境与线上环境的差异（比如上下游流量等），且无法长时间占用等因素，暂时对这个泄漏点持谨慎态度，先顺着这个分析。把这个路径单独截出来  
-![](/cpp_memory_leak/3.png)  
+![](/blog/cpp_memory_leak/3.png)  
 可以看到是 brpc 收取 thrift 数据并反序列化的一段过程。在这个问题的排查过程中，实际上是按照路径把代码都看了一遍，但最后发现跟这个问题关系不大，这部分就略过。主要关注红色箭头的那个调用，即进入标准库前的最后一个用户层（相对于标准库）函数 readStringBody，这个已经到 thrift 层了，可以排除 brpc 的问题，源码截图如下 
-![](/cpp_memory_leak/4.png)  
+![](/blog/cpp_memory_leak/4.png)  
 红色箭头处就是接下来要进入的标准库函数，StrType 在这里被实例化为 std::string。上一行的 borrow 在取名上有一点误导，一开始以为是为了重复利用内存而做的内存池，borrow 就是借出一段可用的空内存。但实际上有一些差别，源码就不展开看了，反正最后确认这个 trans_ 的 buffer 并不是空的而是已经含有了本次要处理的所有 thrift 的数据，获得到的 borrow_buf 就是指向了要被放到 str 这个 string 内的数据的指针。分析到这，有两个初步的可能
 
 1. str 直接复用了 borrow_buf 这块内存，而这块内存没有释放导致泄漏
@@ -53,32 +53,32 @@ pprof  --pdf --base=生成的分析文件.0777.hprof ./目标二进制文件 生
 
 
 要确定这两个问题就要看一下 assign 的实现了，这部分调用链路为 assign->_M_replace_safe->_M_mutate→_Rep::_S_create 截图如下。这里有个阅读标准库的小技巧，先把它按照熟悉的代码格式格式化一下，阅读难度会下降不少
-![](/cpp_memory_leak/5.png)  
+![](/blog/cpp_memory_leak/5.png)  
 
-![](/cpp_memory_leak/6.png)  
+![](/blog/cpp_memory_leak/6.png)  
 
-![](/cpp_memory_leak/7.png)  
+![](/blog/cpp_memory_leak/7.png)  
 
-![](/cpp_memory_leak/8.png)  
+![](/blog/cpp_memory_leak/8.png)  
 
 可以发现确实是在 \_S_create 内分配了一段内存并进行了初始化，然后通过 \_M_copy 函数复制了一份数据。这样就可以否定刚才的观点1。接下来就要看看为什么这个 str 变量没有释放自己的内存，通过观察调用路径上的函数，可以发现是在反序列 C(马赛克)e 这个字段，查看 idl 很幸运的发现这个类里只有一个 string 类型的变量，截图如下
-![](/cpp_memory_leak/9.png)  
+![](/blog/cpp_memory_leak/9.png)  
 上面那个 map 虽然也有 string，但如果是它的话代码路径会多一个 map 的专门解析函数。接下来在业务代码里肉眼跟踪一下他的生命周期，发现在反序列化之后，与另一个变量（pbDataChannel_）做了 swap，如下
-![](/cpp_memory_leak/10.png)  
+![](/blog/cpp_memory_leak/10.png)  
 接下来应该继续确认 swap 的实现了，因为这个不复杂，这里就不展开了，结论就是 swap 只交换了这两个 string 变量内指向实际数据的指针，也就是上面通过 \_S_create 分配的空间现在交由这个 pbDataChannel_ 变量管理了。
 
 继续跟踪 pbDataChannel_  的生命周期，先看下在代码内的声明，截图如下
-![](/cpp_memory_leak/11.png)  
+![](/blog/cpp_memory_leak/11.png)  
 可以发现是在某类内的一个固定长度的 string 数组成员变量，而这个类实例化后的对象都是放在一个对象池内做了复用，从对象池取用和放回时都不会对 pbDataChannel_ 变量做任何操作，而业务代码上对 pbDataChannel_ 的写只有这一个 swap，这样会导致对象池内的 pbDataChannel_ 数组中存有实际数据的 string 会越来越多，进而引起内存只增不减（业务上不会出错的原因是因为有单独维护数组的有效索引），看起来问题比较清晰了，虽然一开始对这个点持谨慎态度，但至少现在可以证明这块一定是有问题的。
 # 3 根因总结
 内存泄漏是由 string 数组变量 pbDataChannel_ 的内存空间没有释放导致
 
 # 4 解决方案
 知道原因后解决方案就很简单了，在这个对象池初始化这个对象的地方加上  
-![](/cpp_memory_leak/12.png)  
+![](/blog/cpp_memory_leak/12.png)  
 就可以了。先调用 clear 逻辑上清空 string，然后调用 shrink_to_fit 让这个 string 把多余的空间释放。当然这种解决方式还是有点粗暴，刚好业务上并没有对这个字段有什么操作，是一个透传字段，所以应该影响不显著，后续如果有问题会做一些更精细的调整。这块清空其实也有好几种方法就不一一枚举分析了。
 # 5 上线效果
-![](/cpp_memory_leak/13.png)  
+![](/blog/cpp_memory_leak/13.png)  
 
 效果显著，内存泄漏被修复
 

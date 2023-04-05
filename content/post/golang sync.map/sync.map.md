@@ -502,19 +502,19 @@ type entry struct {
     p unsafe.Pointer // *interface{}
 }
 ```
-![](/golang_sync.Map/1.png)  
+![](/blog/golang_sync.Map/1.png)  
 可以看到内部存在两个 map (dirty 和 m)
 ## 2.2 算法
 |执行语句|状态|状态|
 |---|---|---|
-|Store("k1", "v1")|![](/golang_sync.Map/2.png)||
-|Load(xxx)|![](/golang_sync.Map/3.png)||
-|Store("k2", "v2")|![](/golang_sync.Map/4.png)||
-|Load("k2")|![](/golang_sync.Map/5.png)|再执行一次 Load("k2")  ![](/golang_sync.Map/6.png)|
-|Store("k2", "v2'")|![](/golang_sync.Map/7.png)|![](/golang_sync.Map/8.png)|
-|Delete(“k2”)|![](/golang_sync.Map/9.png)|![](/golang_sync.Map/10.png)|
-|Store("k3", "v3")||![](/golang_sync.Map/11.png)|
-|Load("k3")  Load("k3")||![](/golang_sync.Map/12.png)|
+|Store("k1", "v1")|![](/blog/golang_sync.Map/2.png)||
+|Load(xxx)|![](/blog/golang_sync.Map/3.png)||
+|Store("k2", "v2")|![](/blog/golang_sync.Map/4.png)||
+|Load("k2")|![](/blog/golang_sync.Map/5.png)|再执行一次 Load("k2")  ![](/blog/golang_sync.Map/6.png)|
+|Store("k2", "v2'")|![](/blog/golang_sync.Map/7.png)|![](/blog/golang_sync.Map/8.png)|
+|Delete(“k2”)|![](/blog/golang_sync.Map/9.png)|![](/blog/golang_sync.Map/10.png)|
+|Store("k3", "v3")||![](/blog/golang_sync.Map/11.png)|
+|Load("k3")  Load("k3")||![](/blog/golang_sync.Map/12.png)|
 
 ## 2.3 性能
 |场景|性能|

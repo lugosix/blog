@@ -13,16 +13,16 @@ cum：某函数消耗的 cpu 时间
 flat ：某函数本身消耗的 cpu 时间，排除了函数内调用其他函数的耗时
 |  | 1.9.2 | 1.13.5 |
 | ------ | ------ | ------ |
-| 按照 flat 降序排列 | ![](/go1.13.5gc/1.png) | ![](/go1.13.5gc/2.png) |
+| 按照 flat 降序排列 | ![](/blog/go1.13.5gc/1.png) | ![](/blog/go1.13.5gc/2.png) |
 
 发现 **runtime.(\*lfstack).pop** 函数在1.13.5版本消耗了大量的 cpu，而在1.9.2甚至没有出现
 ## go tool trace
 在线上机器高峰期使用 trace 跟踪程序运行轨迹
 |  | 1.9.2 | 1.13.5 |
 | ------ | ------ | ------ |
-| trace | ![](/go1.13.5gc/3.png) | ![](/go1.13.5gc/4.png) |
-| minimum mutator utilization （没找到官方翻译，以下简称 mmu）图。这个图同样由 trace 工具生成 | ![](/go1.13.5gc/5.png)  ![](/go1.13.5gc/6.png)| ![](/go1.13.5gc/7.png)  ![](/go1.13.5gc/8.png) |
-| graph |  | ![](/go1.13.5gc/9.png) |
+| trace | ![](/blog/go1.13.5gc/3.png) | ![](/blog/go1.13.5gc/4.png) |
+| minimum mutator utilization （没找到官方翻译，以下简称 mmu）图。这个图同样由 trace 工具生成 | ![](/blog/go1.13.5gc/5.png)  ![](/blog/go1.13.5gc/6.png)| ![](/blog/go1.13.5gc/7.png)  ![](/blog/go1.13.5gc/8.png) |
+| graph |  | ![](/blog/go1.13.5gc/9.png) |
 
 
 trace 按照时间顺序记录了程序所有 goroutine 在被 trace 期间的执行情况。时间刻度在最上方
@@ -35,7 +35,7 @@ mmu 图横轴为时间窗口长度，记为 x。纵轴为 cpu 执行用户自己
 
 # 分析目标函数 runtime.(*lfstack).pop
 配置好源码路径后，使用 pprof 在 view->top 下选中目标函数，选择 view->source，可以直接查看每行代码的时间消耗。如下图
-![](/go1.13.5gc/10.png)
+![](/blog/go1.13.5gc/10.png)
 
 发现这是一个利用 cas 实现的无锁栈的 pop 方法，大部分时间消耗在了红框内语句，证明当时的并发竞争比较严重，if 内的条件返回 false 的概率很大。
 
@@ -88,11 +88,11 @@ cpu 核数和 goroutine 数量越多应该越容易复现。
 针对方案2比较直观的想法是如果能在每次扫描时把所有扫描对象打印出来就好了。
 
 于是通过继续阅读 gc 相关部分代码，发现文件 src/runtime/mgcstack.go 中有一个布尔变量 stackTraceDebug 控制了一些栈相关的 debug 信息输出，可以打印一些 debug 信息，协助寻找栈对象指针。
-![](/go1.13.5gc/11.png)
+![](/blog/go1.13.5gc/11.png)
 
 tackTraceDebug 默认为 false，修改 stackTraceDebug 为 true 后，有多处日志的输出，在本例中主要关注红色箭头这一行的输出，会打印出具体的对象类型。**注：runtime 内 println 会输出到标准错误输出**
 
 # 上线效果
 修改 stackTraceDebug 后，重新编译上线，通过输出分析，发现大部分扫描集中于一个协程池内的某个对象（整体代码结构与上面的链表例子如出一辙），通过对历史数据分析，判断目前协程池并不需要，于是直接去掉协程池并上线。整体效果比较显著，以 hna 集群为例
-![](/go1.13.5gc/12.png)
+![](/blog/go1.13.5gc/12.png)
 集群 cpu.idle 有非常明显的提升，在高峰期提升尤为明显

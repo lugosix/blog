@@ -38,7 +38,7 @@ g++ -std=c++11 test1.cpp
 Segmentation fault (core dumped)
 ```
 # 原因
-![](/cpp_sort/1.png)  
+![](/blog/cpp_sort/1.png)  
 截图来自 [cppreference](https://zh.cppreference.com/w/cpp/algorithm/sort)，标准要求仅在小于时返回 true，即在相等时也应返回 false，而上述例子比较函数相等时返回的是 true。具体 coredump 原因为迭代器越界，与标准库实现相关。
 
 总的来说
