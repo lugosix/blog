@@ -13,7 +13,7 @@ struct person {
 std::list <person*> people;
 ```
 在往这个链表添加几个节点后，可以在内存中得到像这样的结构  
-![std-list](/intrusive_list/stl-list.png)
+![std-list](/blog/intrusive_list/stl-list.png)
 <center>使用 c++ std::list 创建的双向链表</center>
 
 ```c++
@@ -49,7 +49,7 @@ TListDeclare<person, offsetof(person, link)> people;
 LIST_DECLARE(person, link) people;
 ```
 与 std::list 对比，在内存布局上它分配了更少的对象
-![coho-list](/intrusive_list/coho-list.png)
+![coho-list](/blog/intrusive_list/coho-list.png)
 <center>侵入式双向链表</center>
 而且从链表中删除元素既简单又快还不需要内存释放
 
