@@ -1,7 +1,6 @@
 ---
 title: "golang sync.Map 分析与思考"
 date: 2022-10-10T16:00:39+08:00
-draft: false
 ---
 # 1 使用
 ```go

@@ -1,7 +1,6 @@
 ---
 title: "并行编程-内存模型（Memory Model）"
 date: 2021-10-06T16:00:39+08:00
-draft: true
 ---
 先看两个问题
 

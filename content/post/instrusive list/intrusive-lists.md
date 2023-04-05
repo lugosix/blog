@@ -1,7 +1,6 @@
 ---
 title: "【译】侵入式链表（Intrusive Lists）"
 date: 2021-01-16T16:00:39+08:00
-draft: false
 ---
 原文：[https://www.codeofhonor.com/blog/avoiding-game-crashes-related-to-linked-lists]()
 # 使用 std::list

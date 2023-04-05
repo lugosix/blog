@@ -1,7 +1,6 @@
 ---
 title: "c++ std::sort() 使用方式不对引起的 coredump"
 date: 2021-06-22T16:00:39+08:00
-draft: false
 ---
 # 一种 coredump 复现方式
 ```c++
