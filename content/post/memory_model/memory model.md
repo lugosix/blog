@@ -83,11 +83,11 @@ Lamport (1979) 论文中的定义：
 这个感觉会更好理解。
 
 总的来说，顺序一致性模型是最符合直觉的一种模型，四种读写顺序都不允许重排，仿佛存储与 cpu 之间有一个唯一的开关，所有的访问都串行经过这个开关，同时也对程序员比较友好。不过采用这种模型后性能就会出现一些问题，如下图<sup>[1]</sup>，横坐标是功能不同的示例程序，纵坐标是归一化的执行时间
-![sc](/memory_model/sc.jpg)
+![sc](/blog/memory_model/sc.jpg)
 可以看到 cpu 实际的执行时间占比只有 17% ~ 42%，非常低。所以一般实现上都采用要求更宽松的模型
 # 完全存储排序（Total Store Ordering）
 TSO 模型只有一点与 SC 模型不同，它允许 Store-Load 的重排，相比 SC 模型的要求宽松一些，也就是可以在写操作未完成前执行后续的读操作，目前 Intel 的处理器就被认为是实现的 TSO 模型。允许的好处是可以有效的把写入耗时隐藏起来。看下性能对比，如下图<sup>[1]</sup>，Base 是 SC 的数据，WR 是 TSO 的数据。
-![sc_tso](/memory_model/sc_tso.png)
+![sc_tso](/blog/memory_model/sc_tso.png)
 可以很明显的发现，写入耗时没了，也就提高了 cpu 真正干活的时间占比。在实现层面，目前主流实现是在 cpu 与 L1 cache 之前加一个 buffer 的硬件，cpu 执行写入时，值写入 buffer 就立即返回，继续执行，剩余的写入过程由 buffer 完成。如下图  
 
 <div align=center><img src="/memory_model/tso_cpu.jpg"/></div>  
@@ -98,7 +98,7 @@ PSO 模型的要求比 TSO 更为宽松，它允许 Store-Load 和 Store-Store �
 WO 是最宽松的模型，四种重排它都允许
 # 部分处理器架构下的内存模型
 如果所示，取自于 [维基百科](https://en.wikipedia.org/wiki/Memory_ordering)
-![arch](/memory_model/arch.png)
+![arch](/blog/memory_model/arch.png)
 值得注意的是常用于移动端的 arm 架构，就是 WO 模型，允许所有类型的重排，所以在编写跨平台的代码时，内存模型在某些环节就需要格外注意一下。
 # 在要求比较宽松的模型下代码是否能正常工作
 其实大部分代码并不需要像 SC 那样严格的顺序，就比如之前的例子中单独的 write 函数。但仍然有部分代码会出现与预期不一致的现象，为了解决这一类问题就需要利用 cpu 提供的一些指令，告知 cpu 某些地方不要做优化，按照代码顺序执行，这种指令被称作内存屏障/内存栅栏（barrier/fence）
